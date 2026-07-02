@@ -82,6 +82,31 @@ Each edge MUST include target_model (the created object the column belongs to):
 """
 
 
+def _salvage_edges(partial_json):
+    """Extract complete edge objects from a truncated JSON array. Finds every
+    balanced {...} object and parses each individually, discarding the final
+    incomplete one."""
+    import re
+    edges = []
+    depth = 0
+    start = None
+    for i, ch in enumerate(partial_json):
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0 and start is not None:
+                chunk = partial_json[start:i+1]
+                try:
+                    edges.append(json.loads(chunk))
+                except Exception:
+                    pass
+                start = None
+    return edges
+
+
 def get_all_sql():
     """Concatenate all 14 transform-model definitions into one text block."""
     files = U.read_sql_files()
@@ -112,7 +137,7 @@ def main():
         try:
             resp = client.messages.create(
                 model=model_id,
-                max_tokens=8000,  # whole-warehouse edge set is larger
+                max_tokens=16000,  # whole-warehouse edge set (~206 edges JSON)
                 system=[{"type": "text", "text": BATCH_INSTRUCTION,
                          "cache_control": {"type": "ephemeral"}}],
                 messages=[{"role": "user",
@@ -135,11 +160,22 @@ def main():
             cleaned = parts[1] if len(parts) > 1 else cleaned
             if cleaned.startswith("json"):
                 cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+
+        truncated = (resp.stop_reason == "max_tokens")
         try:
-            parsed = json.loads(cleaned.strip())
+            parsed = json.loads(cleaned)
         except Exception as e:
-            print(f"  [fail] parse-error: {e}; raw[:200]={text[:200]!r}")
-            continue
+            if truncated:
+                # salvage complete edge objects from a truncated array
+                parsed = _salvage_edges(cleaned)
+                print(f"  [truncated at max_tokens] response cut off; "
+                      f"salvaged {len(parsed)} complete edges before the cut. "
+                      f"This is itself a batch-mode finding: whole-warehouse "
+                      f"lineage overflowed the output budget.")
+            else:
+                print(f"  [fail] parse-error: {e}; raw[:200]={text[:200]!r}")
+                continue
 
         edges = []
         for e in parsed:
@@ -159,6 +195,8 @@ def main():
         meta = {
             "model_id": model_id, "mode": "batch-single-call",
             "context_tokens_approx": approx_tokens,
+            "output_tokens": resp.usage.output_tokens,
+            "truncated_at_max_tokens": truncated,
             "estimated_cost_usd": round(cost, 4),
             "edges_targeting_unknown_models": dropped,
             "per_model_counts": U.per_model_counts(kept),
