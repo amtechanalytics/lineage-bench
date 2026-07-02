@@ -1,26 +1,22 @@
 """
-SQLGlot static lineage arm.
+SQLGlot static lineage arm (corrected API usage).
 
-Reads the warehouse SQL, and for every column of every transform model asks
-sqlglot.lineage to trace that column back to its source table+column(s). Emits
-normalized edges to results/sqlglot_edges.json.
-
-Design choices tuned to this benchmark:
-- dialect="snowflake" so PIVOT / FLATTEN / VARIANT paths parse
-- each model wrapped in try/except: an unparseable model is RECORDED as a
-  failure (empty edges + logged reason), not a crash -- a parser that cannot
-  handle native PIVOT is a measured result, not an error to hide
-- we build a schema/scope of all CREATE statements so upstream columns resolve
-- leaf sources are walked from the lineage tree; only edges whose source is a
-  real table column are kept (intermediate CTE hops are collapsed to the
-  ultimate source, matching how the gold is defined)
+Key mechanics:
+- schema is built as the NESTED mapping sqlglot expects:
+      {table_name: {column_name: "TYPE", ...}, ...}
+  for the physical/bronze source tables (parsed from their CREATE TABLE column
+  definitions).
+- transform models are passed to lineage() via `sources={name: select_sql}` so
+  the lineage walk can cross model boundaries down to leaf tables.
+- non-lineage statements (USE ..., CREATE STAGE ...) are skipped.
+- each column wrapped in try/except: an unresolvable column is a RECORDED
+  failure, not a crash. A model whose construct sqlglot cannot handle (e.g.
+  dynamic PIVOT) shows up as columns with errors -> measured degradation.
 
 Run:  python arms/run_sqlglot.py
 """
 
 import sys
-import traceback
-from collections import defaultdict
 
 import arm_utils as U
 
@@ -28,7 +24,6 @@ try:
     import sqlglot
     from sqlglot import exp
     from sqlglot.lineage import lineage
-    from sqlglot.optimizer.scope import build_scope
 except ImportError:
     print("ERROR: sqlglot not installed. Run: pip install -r requirements.txt")
     sys.exit(1)
@@ -36,63 +31,76 @@ except ImportError:
 DIALECT = "snowflake"
 
 
-def build_schema(statements):
-    """Map model/table name -> list of output column names, by parsing each
-    CREATE statement. Needed so lineage() can resolve columns across models."""
+def build_source_schema(statements):
+    """Parse CREATE TABLE (col TYPE, ...) definitions into the nested schema
+    shape sqlglot wants: {table: {col: TYPE}}."""
     schema = {}
-    parsed = {}
     for stmt in statements:
-        model = U.extract_target_model(stmt)
-        if not model:
-            continue
         try:
             tree = sqlglot.parse_one(stmt, dialect=DIALECT)
         except Exception:
             continue
-        parsed[model] = tree
-        cols = []
-        # try to read the explicit output column list first (CREATE ... ( ... ))
-        # else fall back to projections in the SELECT
-        select = tree.find(exp.Select)
-        if select:
-            for proj in select.expressions:
-                alias = proj.alias_or_name
-                if alias:
-                    cols.append(alias)
-        schema[model] = cols
-    return schema, parsed
+        if not isinstance(tree, exp.Create):
+            continue
+        table = tree.this
+        if not isinstance(table, exp.Schema):
+            continue
+        tbl_name = U.clean_ident(table.this.name)
+        cols = {}
+        for col_def in table.expressions:
+            if isinstance(col_def, exp.ColumnDef):
+                cols[U.clean_ident(col_def.this.name)] = (
+                    col_def.kind.sql(dialect=DIALECT) if col_def.kind else "UNKNOWN")
+        if cols:
+            schema[tbl_name] = cols
+    return schema
 
 
-def sources_for_column(model, column, statements_by_model, schema):
-    """Use sqlglot.lineage to trace one output column of `model` to leaf
-    table.column sources. Returns list of (source_table, source_column)."""
-    sql = statements_by_model.get(model)
-    if sql is None:
-        return [], "no-sql-for-model"
+def select_body(stmt):
+    """Return the CREATE ... AS <select> body as SQL text for one statement."""
     try:
-        node = lineage(column, sql, schema=schema, dialect=DIALECT)
-    except Exception as e:
-        return [], f"lineage-error: {type(e).__name__}: {e}"
+        tree = sqlglot.parse_one(stmt, dialect=DIALECT)
+    except Exception:
+        return None
+    if not isinstance(tree, exp.Create):
+        return None
+    expr = tree.expression
+    if expr is None:
+        return None
+    return expr.sql(dialect=DIALECT)
 
+
+def output_columns(stmt):
+    """Best-effort list of output column names for a CREATE ... AS SELECT."""
+    try:
+        tree = sqlglot.parse_one(stmt, dialect=DIALECT)
+    except Exception:
+        return []
+    select = tree.find(exp.Select)
+    if not select:
+        return []
+    cols = []
+    for proj in select.expressions:
+        name = proj.alias_or_name
+        if name and name != "*":
+            cols.append(name)
+    return cols
+
+
+def leaf_sources(node, model_name):
+    """Walk a lineage node's DAG and collect leaf (table, column) pairs."""
     out = []
-    # walk the lineage DAG; leaf nodes carry a table source
     for n in node.walk():
-        # a leaf has no downstream and references a physical column
-        tbl = None
-        col = None
+        expr = n.expression
         try:
-            if isinstance(n.expression, exp.Column):
-                col = n.expression.name
-                tbl = n.expression.table
-            # some nodes carry source table in n.source
-            if not tbl and getattr(n, "source", None) is not None:
-                if isinstance(n.source, exp.Table):
-                    tbl = n.source.name
+            if isinstance(expr, exp.Column):
+                col = expr.name
+                tbl = expr.table
+                if tbl and col:
+                    out.append((U.clean_ident(tbl), U.clean_ident(col)))
         except Exception:
             continue
-        if tbl and col:
-            out.append((tbl, col))
-    return out, None
+    return out
 
 
 def main():
@@ -101,44 +109,65 @@ def main():
     all_statements = []
     for path, text in files:
         for stmt in U.split_statements(text):
-            if stmt.lower().startswith("create"):
-                all_statements.append(stmt)
-    print(f"  parsed {len(all_statements)} CREATE statements")
+            low = stmt.lower()
+            if low.startswith("use ") or low.startswith("create stage"):
+                continue
+            if low.startswith("insert"):
+                continue
+            all_statements.append(stmt)
 
-    schema, parsed = build_schema(all_statements)
-    statements_by_model = {U.extract_target_model(s): s for s in all_statements
-                           if U.extract_target_model(s)}
+    create_stmts = [s for s in all_statements if U.extract_target_model(s)]
+    print(f"  parsed {len(create_stmts)} CREATE statements")
+
+    schema = build_source_schema(create_stmts)
+    print(f"  source-table schema entries: {len(schema)}")
+
+    sources = {}
+    for s in create_stmts:
+        model = U.extract_target_model(s)
+        body = select_body(s)
+        if model and body:
+            sources[model] = body
 
     edges = []
     failures = {}
     for model in U.TRANSFORM_MODELS:
-        cols = schema.get(model, [])
+        stmt = next((s for s in create_stmts
+                     if U.extract_target_model(s) == model), None)
+        if stmt is None:
+            failures[model] = "statement-not-found"
+            print(f"  [fail] {model}: statement not found")
+            continue
+        cols = output_columns(stmt)
         if not cols:
-            failures[model] = "no-columns-resolved"
-            print(f"  [fail] {model}: no columns resolved")
+            failures[model] = "no-output-columns (likely SELECT * / pivot)"
+            print(f"  {model}: 0 edges  (no output columns resolved from text)")
             continue
         model_edges = 0
-        model_errs = []
+        errs = []
         for col in cols:
-            srcs, err = sources_for_column(model, col, statements_by_model, schema)
-            if err:
-                model_errs.append(f"{col}:{err}")
+            try:
+                node = lineage(col, sources[model], schema=schema,
+                               sources=sources, dialect=DIALECT)
+            except Exception as e:
+                errs.append(f"{col}:{type(e).__name__}")
                 continue
-            for (stbl, scol) in srcs:
-                if stbl and stbl.lower() == model.lower():
-                    continue  # self-reference, skip
+            for (stbl, scol) in leaf_sources(node, model):
+                if stbl == model:
+                    continue
                 edges.append(U.normalize_edge(model, col, stbl, scol))
                 model_edges += 1
-        if model_errs:
-            failures[model] = "; ".join(model_errs[:5])
+        if errs:
+            failures[model] = "; ".join(errs[:8])
         print(f"  {model}: {model_edges} edges"
-              + (f"  ({len(model_errs)} col errors)" if model_errs else ""))
+              + (f"  ({len(errs)} col errors)" if errs else ""))
 
     edges = U.dedupe_edges(edges)
     meta = {
         "dialect": DIALECT,
         "sqlglot_version": sqlglot.__version__,
-        "statements": len(all_statements),
+        "create_statements": len(create_stmts),
+        "schema_tables": sorted(schema.keys()),
         "failures": failures,
         "per_model_counts": U.per_model_counts(edges),
     }

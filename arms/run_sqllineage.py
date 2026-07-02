@@ -34,31 +34,47 @@ except ImportError:
 DIALECT = "snowflake"
 
 
+def clean_sql_for_parse(text):
+    """Strip statements sqllineage cannot handle (USE ..., CREATE STAGE ...,
+    INSERT ...) and rebuild a SQL string of only the CREATE ... AS SELECT
+    models. Without this, a leading `USE DATABASE ...;` makes sqllineage
+    discard the entire file."""
+    keep = []
+    for stmt in U.split_statements(text):
+        low = stmt.lower()
+        if low.startswith("use ") or low.startswith("create stage"):
+            continue
+        if low.startswith("insert"):
+            continue
+        keep.append(stmt + ";")
+    return "\n\n".join(keep)
+
+
 def edges_from_file(path, text):
-    """Run sqllineage over one file's SQL and return normalized column edges."""
+    """Run sqllineage over one file's cleaned SQL and return normalized column
+    edges."""
     edges = []
     errors = []
-    # sqllineage prefers analyzing the whole script; column lineage needs the
-    # non-validating dialect set. Try snowflake, fall back to ansi.
+    cleaned = clean_sql_for_parse(text)
+    if not cleaned.strip():
+        return edges, ["no-parseable-statements"]
     for dialect in (DIALECT, "ansi", None):
         try:
             kwargs = {"dialect": dialect} if dialect else {}
-            runner = LineageRunner(text, **kwargs)
+            runner = LineageRunner(cleaned, **kwargs)
             col_lineage = runner.get_column_lineage()
             for chain in col_lineage:
-                # each chain is a tuple of Column objects from source -> target
                 if len(chain) < 2:
                     continue
                 source_col = chain[0]
                 target_col = chain[-1]
-                # Column objects expose .parent (table) and .raw_name
                 stbl = _table_of(source_col)
                 scol = _name_of(source_col)
                 ttbl = _table_of(target_col)
                 tcol = _name_of(target_col)
                 if ttbl and tcol and stbl and scol:
                     edges.append(U.normalize_edge(ttbl, tcol, stbl, scol))
-            return edges, errors  # success on this dialect
+            return edges, errors
         except Exception as e:
             errors.append(f"dialect={dialect}: {type(e).__name__}: {e}")
             continue
@@ -112,10 +128,14 @@ def main():
     missing = [m for m in U.TRANSFORM_MODELS if m not in covered]
 
     try:
-        import sqllineage as _s
-        ver = getattr(_s, "__version__", "unknown")
+        from importlib.metadata import version as _v
+        ver = _v("sqllineage")
     except Exception:
-        ver = "unknown"
+        try:
+            import sqllineage as _s
+            ver = getattr(_s, "__version__", "unknown")
+        except Exception:
+            ver = "unknown"
 
     meta = {
         "dialect": DIALECT,
