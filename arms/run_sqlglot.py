@@ -87,20 +87,64 @@ def output_columns(stmt):
     return cols
 
 
-def leaf_sources(node, model_name):
-    """Walk a lineage node's DAG and collect leaf (table, column) pairs."""
+def leaf_sources(node, model_name, known_tables):
+    """Collect leaf (table, column) pairs from a sqlglot lineage Node.
+
+    In sqlglot, lineage leaves are Nodes with empty .downstream, and the source
+    identity is carried in Node.name as a dotted string 'table.column' (not as
+    an exp.Column in .expression). We walk .downstream recursively and, at each
+    leaf, parse node.name. We keep only leaves whose table is a real source
+    table (in known_tables) OR whose name resolves to table.column form.
+    """
     out = []
-    for n in node.walk():
-        expr = n.expression
-        try:
-            if isinstance(expr, exp.Column):
-                col = expr.name
-                tbl = expr.table
-                if tbl and col:
-                    out.append((U.clean_ident(tbl), U.clean_ident(col)))
-        except Exception:
-            continue
+    seen = set()
+
+    def _walk(n):
+        downstream = getattr(n, "downstream", None) or []
+        if not downstream:
+            # leaf: parse its name
+            raw = getattr(n, "name", None)
+            if raw:
+                raw_l = raw.strip().lower().strip('"')
+                if "." in raw_l:
+                    parts = raw_l.split(".")
+                    tbl = parts[-2]
+                    col = parts[-1]
+                    key = (tbl, col)
+                    if key not in seen:
+                        seen.add(key)
+                        out.append((U.clean_ident(tbl), U.clean_ident(col)))
+            return
+        for child in downstream:
+            _walk(child)
+
+    _walk(node)
     return out
+
+
+def debug_probe(sources, schema):
+    """Dump the raw structure of one lineage node so we can see exactly what
+    this sqlglot version returns. Controlled by DEBUG_LINEAGE=1."""
+    import os
+    if os.environ.get("DEBUG_LINEAGE") != "1":
+        return
+    print("\n  === DEBUG: raw lineage node for stg_products.product_sku ===")
+    try:
+        node = lineage("product_sku", sources["stg_products"],
+                       schema=schema, sources=sources, dialect=DIALECT)
+        def dump(n, depth=0):
+            pad = "    " + "  " * depth
+            nm = getattr(n, "name", None)
+            downstream = getattr(n, "downstream", None) or []
+            exprtype = type(getattr(n, "expression", None)).__name__
+            print(f"{pad}name={nm!r} expr={exprtype} downstream={len(downstream)}")
+            for c in downstream:
+                dump(c, depth + 1)
+        dump(node)
+    except Exception as e:
+        import traceback
+        print("    probe error:", traceback.format_exc())
+    print("  === END DEBUG ===\n")
 
 
 def main():
@@ -129,6 +173,8 @@ def main():
         if model and body:
             sources[model] = body
 
+    debug_probe(sources, schema)
+
     edges = []
     failures = {}
     for model in U.TRANSFORM_MODELS:
@@ -152,7 +198,7 @@ def main():
             except Exception as e:
                 errs.append(f"{col}:{type(e).__name__}")
                 continue
-            for (stbl, scol) in leaf_sources(node, model):
+            for (stbl, scol) in leaf_sources(node, model, set(schema.keys())):
                 if stbl == model:
                     continue
                 edges.append(U.normalize_edge(model, col, stbl, scol))
