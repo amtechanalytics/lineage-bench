@@ -37,7 +37,7 @@ REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GOLD_PATH = os.path.join(REPO_ROOT, "gold", "gold_edges.json")
 RESULTS_DIR = os.path.join(REPO_ROOT, "results")
 
-ARMS = ["sqlglot", "sqllineage", "llm"]  # llm scored if its file exists
+ARMS = ["sqlglot", "sqllineage", "llm_haiku", "llm_sonnet"]  # LLM arms scored if files exist
 
 DYNAMIC_PIVOT_MODEL = "fct_category_pivot_dyn"
 PIVOT_SENTINEL = "__pivoted__"
