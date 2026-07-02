@@ -87,64 +87,129 @@ def output_columns(stmt):
     return cols
 
 
-def leaf_sources(node, model_name, known_tables):
-    """Collect leaf (table, column) pairs from a sqlglot lineage Node.
+def build_full_schema(statements):
+    """Schema for EVERY table and model: physical tables from their column
+    defs, and each CREATE ... AS SELECT model from its output column names.
+    Types are unknown for model columns; sqlglot only needs the names to
+    resolve immediate-upstream references."""
+    schema = build_source_schema(statements)
+    for stmt in statements:
+        model = U.extract_target_model(stmt)
+        if not model or model in schema:
+            continue
+        cols = output_columns(stmt)
+        if cols:
+            schema[model] = {U.clean_ident(c): "UNKNOWN" for c in cols}
+    return schema
 
-    In sqlglot, lineage leaves are Nodes with empty .downstream, and the source
-    identity is carried in Node.name as a dotted string 'table.column' (not as
-    an exp.Column in .expression). We walk .downstream recursively and, at each
-    leaf, parse node.name. We keep only leaves whose table is a real source
-    table (in known_tables) OR whose name resolves to table.column form.
+
+def build_alias_map(stmt):
+    """Build alias/CTE -> base-table maps for one CREATE statement.
+
+    Lineage reports a local name instead of a base table in two cases:
+      (a) table aliases in FROM/JOIN: `raw_products p` -> p means raw_products
+      (b) CTE names: `WITH web AS (SELECT ... FROM raw_orders_web)` -> web means
+          the base table(s) its body reads.
     """
+    try:
+        tree = sqlglot.parse_one(stmt, dialect=DIALECT)
+    except Exception:
+        return {}, {}
+
+    alias_map = {}   # table alias -> base table
+    cte_bases = {}   # cte name -> set of base tables its body reads
+
+    for tbl in tree.find_all(exp.Table):
+        base = U.clean_ident(tbl.name)
+        alias = tbl.alias
+        if alias:
+            alias_map[U.clean_ident(alias)] = base
+
+    for cte in tree.find_all(exp.CTE):
+        cte_name = U.clean_ident(cte.alias)
+        bases = set()
+        body = cte.this
+        for tbl in body.find_all(exp.Table):
+            b = U.clean_ident(tbl.name)
+            b = alias_map.get(b, b)
+            bases.add(b)
+        cte_bases[cte_name] = bases
+
+    return alias_map, cte_bases
+
+
+def resolve_source(tbl, alias_map, cte_bases):
+    """Resolve a lineage-reported source name to base table(s). A CTE over a
+    union resolves to multiple bases."""
+    t = U.clean_ident(tbl)
+    if t in alias_map:
+        return [alias_map[t]]
+    if t in cte_bases:
+        return sorted(cte_bases[t])
+    return [t]
+
+
+def immediate_sources(node, model_name):
+    """First-hop sources from a lineage node: the direct children of the root
+    output-column node, whose names carry 'table.column'. With schema-only
+    resolution (no sources=), intermediate models are NOT expanded, so these
+    children are the immediate upstream table.column -- matching gold
+    semantics rather than recursing to ultimate leaves."""
     out = []
     seen = set()
 
-    def _walk(n):
-        downstream = getattr(n, "downstream", None) or []
-        if not downstream:
-            # leaf: parse its name
-            raw = getattr(n, "name", None)
-            if raw:
-                raw_l = raw.strip().lower().strip('"')
-                if "." in raw_l:
-                    parts = raw_l.split(".")
-                    tbl = parts[-2]
-                    col = parts[-1]
-                    key = (tbl, col)
-                    if key not in seen:
-                        seen.add(key)
-                        out.append((U.clean_ident(tbl), U.clean_ident(col)))
-            return
-        for child in downstream:
-            _walk(child)
+    def collect(n):
+        raw = getattr(n, "name", None)
+        if raw and "." in raw:
+            parts = raw.strip().lower().strip('"').split(".")
+            tbl, col = parts[-2], parts[-1]
+            key = (tbl, col)
+            if key not in seen:
+                seen.add(key)
+                out.append((U.clean_ident(tbl), U.clean_ident(col)))
+            return True
+        return False
 
-    _walk(node)
+    for child in (getattr(node, "downstream", None) or []):
+        if not collect(child):
+            for gc in (getattr(child, "downstream", None) or []):
+                collect(gc)
     return out
 
 
-def debug_probe(sources, schema):
-    """Dump the raw structure of one lineage node so we can see exactly what
-    this sqlglot version returns. Controlled by DEBUG_LINEAGE=1."""
+def debug_probe_multi(create_stmts, schema):
+    """Dump lineage trees for one single-hop and one multi-hop column so we can
+    confirm immediate-upstream extraction. DEBUG_LINEAGE=1 to enable."""
     import os
     if os.environ.get("DEBUG_LINEAGE") != "1":
         return
-    print("\n  === DEBUG: raw lineage node for stg_products.product_sku ===")
-    try:
-        node = lineage("product_sku", sources["stg_products"],
-                       schema=schema, sources=sources, dialect=DIALECT)
-        def dump(n, depth=0):
-            pad = "    " + "  " * depth
-            nm = getattr(n, "name", None)
-            downstream = getattr(n, "downstream", None) or []
-            exprtype = type(getattr(n, "expression", None)).__name__
-            print(f"{pad}name={nm!r} expr={exprtype} downstream={len(downstream)}")
-            for c in downstream:
-                dump(c, depth + 1)
-        dump(node)
-    except Exception as e:
-        import traceback
-        print("    probe error:", traceback.format_exc())
-    print("  === END DEBUG ===\n")
+
+    def body_for(model):
+        stmt = next((s for s in create_stmts
+                     if U.extract_target_model(s) == model), None)
+        return select_body(stmt) if stmt else None
+
+    def dump(n, depth=0):
+        pad = "    " + "  " * depth
+        nm = getattr(n, "name", None)
+        downstream = getattr(n, "downstream", None) or []
+        print(f"{pad}name={nm!r} downstream={len(downstream)}")
+        for c in downstream:
+            dump(c, depth + 1)
+
+    for model, col in [("stg_products", "product_sku"),
+                       ("stg_order_items_enriched", "product_name")]:
+        body = body_for(model)
+        if not body:
+            continue
+        print(f"\n  === DEBUG: {model}.{col} (schema-only) ===")
+        try:
+            node = lineage(col, body, schema=schema, dialect=DIALECT)
+            dump(node)
+        except Exception as e:
+            import traceback
+            print("    probe error:", traceback.format_exc())
+        print("  === END DEBUG ===")
 
 
 def main():
@@ -163,17 +228,17 @@ def main():
     create_stmts = [s for s in all_statements if U.extract_target_model(s)]
     print(f"  parsed {len(create_stmts)} CREATE statements")
 
-    schema = build_source_schema(create_stmts)
-    print(f"  source-table schema entries: {len(schema)}")
+    # Build a FULL schema of every table/model (their output columns) so that
+    # lineage() can resolve column references to their immediate source table
+    # WITHOUT expanding intermediate models inline. We deliberately do NOT pass
+    # `sources` (which would inline intermediate SELECTs and produce transitive
+    # lineage to the ultimate raw leaf). Gold uses IMMEDIATE-upstream semantics:
+    # an edge points to the table the SELECT directly reads. Schema-only
+    # resolution yields exactly that.
+    schema = build_full_schema(create_stmts)
+    print(f"  schema tables (all models + sources): {len(schema)}")
 
-    sources = {}
-    for s in create_stmts:
-        model = U.extract_target_model(s)
-        body = select_body(s)
-        if model and body:
-            sources[model] = body
-
-    debug_probe(sources, schema)
+    debug_probe_multi(create_stmts, schema)
 
     edges = []
     failures = {}
@@ -184,25 +249,29 @@ def main():
             failures[model] = "statement-not-found"
             print(f"  [fail] {model}: statement not found")
             continue
+        body = select_body(stmt)
         cols = output_columns(stmt)
-        if not cols:
+        if not cols or body is None:
             failures[model] = "no-output-columns (likely SELECT * / pivot)"
             print(f"  {model}: 0 edges  (no output columns resolved from text)")
             continue
+        alias_map, cte_bases = build_alias_map(stmt)
         model_edges = 0
         errs = []
         for col in cols:
             try:
-                node = lineage(col, sources[model], schema=schema,
-                               sources=sources, dialect=DIALECT)
+                # schema-only (no sources=) -> immediate upstream
+                node = lineage(col, body, schema=schema, dialect=DIALECT)
             except Exception as e:
                 errs.append(f"{col}:{type(e).__name__}")
                 continue
-            for (stbl, scol) in leaf_sources(node, model, set(schema.keys())):
-                if stbl == model:
-                    continue
-                edges.append(U.normalize_edge(model, col, stbl, scol))
-                model_edges += 1
+            for (stbl, scol) in immediate_sources(node, model):
+                # resolve table aliases and CTE names to base tables
+                for base in resolve_source(stbl, alias_map, cte_bases):
+                    if base == model:
+                        continue
+                    edges.append(U.normalize_edge(model, col, base, scol))
+                    model_edges += 1
         if errs:
             failures[model] = "; ".join(errs[:8])
         print(f"  {model}: {model_edges} edges"
@@ -212,6 +281,7 @@ def main():
     meta = {
         "dialect": DIALECT,
         "sqlglot_version": sqlglot.__version__,
+        "lineage_semantics": "immediate-upstream (schema-only resolution)",
         "create_statements": len(create_stmts),
         "schema_tables": sorted(schema.keys()),
         "failures": failures,
