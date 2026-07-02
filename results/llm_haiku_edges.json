@@ -1,0 +1,1298 @@
+{
+  "arm": "llm_haiku",
+  "meta": {
+    "failures": {},
+    "model_id": "claude-haiku-4-5-20251001",
+    "estimated_cost_usd": 0.0602,
+    "per_model_counts": {
+      "dim_customer_metrics": 12,
+      "dp_item_catalog": 24,
+      "dp_order_economics": 31,
+      "dp_party_360": 43,
+      "dp_settlement_summary": 30,
+      "fct_category_pivot_dyn": 3,
+      "fct_sales_wide_static": 7,
+      "mart_seller_scorecard": 7,
+      "rpt_exec_summary": 8,
+      "stg_events_flat": 5,
+      "stg_order_items_enriched": 13,
+      "stg_orders_unified": 20,
+      "stg_products": 4,
+      "stg_sales_base": 5
+    }
+  },
+  "edges": [
+    {
+      "target_model": "stg_products",
+      "target_column": "product_sku",
+      "source_table": "raw_products",
+      "source_column": "sku"
+    },
+    {
+      "target_model": "stg_products",
+      "target_column": "product_name",
+      "source_table": "raw_products",
+      "source_column": "prod_name"
+    },
+    {
+      "target_model": "stg_products",
+      "target_column": "product_category",
+      "source_table": "raw_products",
+      "source_column": "category"
+    },
+    {
+      "target_model": "stg_products",
+      "target_column": "catalog_price",
+      "source_table": "raw_products",
+      "source_column": "list_price"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "order_natural_key",
+      "source_table": "raw_orders_web",
+      "source_column": "order_id"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "order_natural_key",
+      "source_table": "raw_orders_mkt",
+      "source_column": "order_ref"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "source_system",
+      "source_table": "raw_orders_web",
+      "source_column": "source_system"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "source_system",
+      "source_table": "raw_orders_mkt",
+      "source_column": "source_system"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "customer_ident",
+      "source_table": "raw_orders_web",
+      "source_column": "cust_email"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "customer_ident",
+      "source_table": "raw_orders_mkt",
+      "source_column": "buyer_hash"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "order_datetime",
+      "source_table": "raw_orders_web",
+      "source_column": "order_ts"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "order_datetime",
+      "source_table": "raw_orders_mkt",
+      "source_column": "placed_at"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "order_amount",
+      "source_table": "raw_orders_web",
+      "source_column": "gross_amount"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "order_amount",
+      "source_table": "raw_orders_mkt",
+      "source_column": "amount_total"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "country",
+      "source_table": "raw_orders_web",
+      "source_column": "ship_country"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "country",
+      "source_table": "raw_orders_mkt",
+      "source_column": "dest_country"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "seller_code",
+      "source_table": "raw_orders_web",
+      "source_column": "seller_code"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "seller_code",
+      "source_table": "raw_orders_mkt",
+      "source_column": "seller_code"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "seller_name",
+      "source_table": "raw_sellers",
+      "source_column": "seller_name"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "seller_name",
+      "source_table": "raw_orders_web",
+      "source_column": "seller_code"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "seller_name",
+      "source_table": "raw_orders_mkt",
+      "source_column": "seller_code"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "seller_region",
+      "source_table": "raw_sellers",
+      "source_column": "region"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "seller_region",
+      "source_table": "raw_orders_web",
+      "source_column": "seller_code"
+    },
+    {
+      "target_model": "stg_orders_unified",
+      "target_column": "seller_region",
+      "source_table": "raw_orders_mkt",
+      "source_column": "seller_code"
+    },
+    {
+      "target_model": "stg_order_items_enriched",
+      "target_column": "item_id",
+      "source_table": "raw_order_items",
+      "source_column": "item_id"
+    },
+    {
+      "target_model": "stg_order_items_enriched",
+      "target_column": "order_key",
+      "source_table": "raw_order_items",
+      "source_column": "order_key"
+    },
+    {
+      "target_model": "stg_order_items_enriched",
+      "target_column": "product_sku",
+      "source_table": "raw_order_items",
+      "source_column": "product_sku"
+    },
+    {
+      "target_model": "stg_order_items_enriched",
+      "target_column": "product_name",
+      "source_table": "stg_products",
+      "source_column": "product_name"
+    },
+    {
+      "target_model": "stg_order_items_enriched",
+      "target_column": "product_category",
+      "source_table": "stg_products",
+      "source_column": "product_category"
+    },
+    {
+      "target_model": "stg_order_items_enriched",
+      "target_column": "qty",
+      "source_table": "raw_order_items",
+      "source_column": "qty"
+    },
+    {
+      "target_model": "stg_order_items_enriched",
+      "target_column": "unit_price",
+      "source_table": "raw_order_items",
+      "source_column": "unit_price"
+    },
+    {
+      "target_model": "stg_order_items_enriched",
+      "target_column": "line_total",
+      "source_table": "raw_order_items",
+      "source_column": "qty"
+    },
+    {
+      "target_model": "stg_order_items_enriched",
+      "target_column": "line_total",
+      "source_table": "raw_order_items",
+      "source_column": "unit_price"
+    },
+    {
+      "target_model": "stg_order_items_enriched",
+      "target_column": "product_name",
+      "source_table": "raw_order_items",
+      "source_column": "product_sku"
+    },
+    {
+      "target_model": "stg_order_items_enriched",
+      "target_column": "product_category",
+      "source_table": "raw_order_items",
+      "source_column": "product_sku"
+    },
+    {
+      "target_model": "stg_order_items_enriched",
+      "target_column": "product_name",
+      "source_table": "stg_products",
+      "source_column": "product_sku"
+    },
+    {
+      "target_model": "stg_order_items_enriched",
+      "target_column": "product_category",
+      "source_table": "stg_products",
+      "source_column": "product_sku"
+    },
+    {
+      "target_model": "stg_events_flat",
+      "target_column": "event_id",
+      "source_table": "raw_events",
+      "source_column": "event_id"
+    },
+    {
+      "target_model": "stg_events_flat",
+      "target_column": "customer_ident",
+      "source_table": "raw_events",
+      "source_column": "payload"
+    },
+    {
+      "target_model": "stg_events_flat",
+      "target_column": "event_type",
+      "source_table": "raw_events",
+      "source_column": "payload"
+    },
+    {
+      "target_model": "stg_events_flat",
+      "target_column": "product_sku",
+      "source_table": "raw_events",
+      "source_column": "payload"
+    },
+    {
+      "target_model": "stg_events_flat",
+      "target_column": "dwell_seconds",
+      "source_table": "raw_events",
+      "source_column": "payload"
+    },
+    {
+      "target_model": "stg_sales_base",
+      "target_column": "order_key",
+      "source_table": "stg_order_items_enriched",
+      "source_column": "order_key"
+    },
+    {
+      "target_model": "stg_sales_base",
+      "target_column": "item_count",
+      "source_table": "stg_order_items_enriched",
+      "source_column": "*"
+    },
+    {
+      "target_model": "stg_sales_base",
+      "target_column": "order_line_revenue",
+      "source_table": "stg_order_items_enriched",
+      "source_column": "line_total"
+    },
+    {
+      "target_model": "stg_sales_base",
+      "target_column": "avg_unit_price",
+      "source_table": "stg_order_items_enriched",
+      "source_column": "unit_price"
+    },
+    {
+      "target_model": "stg_sales_base",
+      "target_column": "top_category",
+      "source_table": "stg_order_items_enriched",
+      "source_column": "product_category"
+    },
+    {
+      "target_model": "dim_customer_metrics",
+      "target_column": "customer_ident",
+      "source_table": "stg_orders_unified",
+      "source_column": "customer_ident"
+    },
+    {
+      "target_model": "dim_customer_metrics",
+      "target_column": "source_system",
+      "source_table": "stg_orders_unified",
+      "source_column": "source_system"
+    },
+    {
+      "target_model": "dim_customer_metrics",
+      "target_column": "order_datetime",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_datetime"
+    },
+    {
+      "target_model": "dim_customer_metrics",
+      "target_column": "order_amount",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_amount"
+    },
+    {
+      "target_model": "dim_customer_metrics",
+      "target_column": "running_ltv",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_amount"
+    },
+    {
+      "target_model": "dim_customer_metrics",
+      "target_column": "running_ltv",
+      "source_table": "stg_orders_unified",
+      "source_column": "customer_ident"
+    },
+    {
+      "target_model": "dim_customer_metrics",
+      "target_column": "running_ltv",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_datetime"
+    },
+    {
+      "target_model": "dim_customer_metrics",
+      "target_column": "recency_rank",
+      "source_table": "stg_orders_unified",
+      "source_column": "customer_ident"
+    },
+    {
+      "target_model": "dim_customer_metrics",
+      "target_column": "recency_rank",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_datetime"
+    },
+    {
+      "target_model": "dim_customer_metrics",
+      "target_column": "value_tier",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_amount"
+    },
+    {
+      "target_model": "dim_customer_metrics",
+      "target_column": "amount_vs_cust_avg",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_amount"
+    },
+    {
+      "target_model": "dim_customer_metrics",
+      "target_column": "amount_vs_cust_avg",
+      "source_table": "stg_orders_unified",
+      "source_column": "customer_ident"
+    },
+    {
+      "target_model": "fct_sales_wide_static",
+      "target_column": "country",
+      "source_table": "stg_orders_unified",
+      "source_column": "country"
+    },
+    {
+      "target_model": "fct_sales_wide_static",
+      "target_column": "rev_2024_01",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_amount"
+    },
+    {
+      "target_model": "fct_sales_wide_static",
+      "target_column": "rev_2024_01",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_datetime"
+    },
+    {
+      "target_model": "fct_sales_wide_static",
+      "target_column": "rev_2024_02",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_amount"
+    },
+    {
+      "target_model": "fct_sales_wide_static",
+      "target_column": "rev_2024_02",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_datetime"
+    },
+    {
+      "target_model": "fct_sales_wide_static",
+      "target_column": "rev_2024_03",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_amount"
+    },
+    {
+      "target_model": "fct_sales_wide_static",
+      "target_column": "rev_2024_03",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_datetime"
+    },
+    {
+      "target_model": "fct_category_pivot_dyn",
+      "target_column": "order_key",
+      "source_table": "stg_order_items_enriched",
+      "source_column": "order_key"
+    },
+    {
+      "target_model": "fct_category_pivot_dyn",
+      "target_column": "__pivoted__",
+      "source_table": "stg_order_items_enriched",
+      "source_column": "line_total"
+    },
+    {
+      "target_model": "fct_category_pivot_dyn",
+      "target_column": "__pivoted__",
+      "source_table": "stg_order_items_enriched",
+      "source_column": "product_category"
+    },
+    {
+      "target_model": "mart_seller_scorecard",
+      "target_column": "seller_code",
+      "source_table": "stg_orders_unified",
+      "source_column": "seller_code"
+    },
+    {
+      "target_model": "mart_seller_scorecard",
+      "target_column": "rev_us",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_amount"
+    },
+    {
+      "target_model": "mart_seller_scorecard",
+      "target_column": "rev_de",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_amount"
+    },
+    {
+      "target_model": "mart_seller_scorecard",
+      "target_column": "rev_gb",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_amount"
+    },
+    {
+      "target_model": "mart_seller_scorecard",
+      "target_column": "rev_ca",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_amount"
+    },
+    {
+      "target_model": "mart_seller_scorecard",
+      "target_column": "total_rev",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_amount"
+    },
+    {
+      "target_model": "mart_seller_scorecard",
+      "target_column": "market_flag",
+      "source_table": "stg_orders_unified",
+      "source_column": "order_amount"
+    },
+    {
+      "target_model": "rpt_exec_summary",
+      "target_column": "customer_ident",
+      "source_table": "dim_customer_metrics",
+      "source_column": "customer_ident"
+    },
+    {
+      "target_model": "rpt_exec_summary",
+      "target_column": "final_ltv",
+      "source_table": "dim_customer_metrics",
+      "source_column": "running_ltv"
+    },
+    {
+      "target_model": "rpt_exec_summary",
+      "target_column": "best_tier",
+      "source_table": "dim_customer_metrics",
+      "source_column": "value_tier"
+    },
+    {
+      "target_model": "rpt_exec_summary",
+      "target_column": "order_line_revenue",
+      "source_table": "stg_sales_base",
+      "source_column": "order_line_revenue"
+    },
+    {
+      "target_model": "rpt_exec_summary",
+      "target_column": "final_ltv",
+      "source_table": "dim_customer_metrics",
+      "source_column": "customer_ident"
+    },
+    {
+      "target_model": "rpt_exec_summary",
+      "target_column": "best_tier",
+      "source_table": "dim_customer_metrics",
+      "source_column": "customer_ident"
+    },
+    {
+      "target_model": "rpt_exec_summary",
+      "target_column": "order_line_revenue",
+      "source_table": "stg_sales_base",
+      "source_column": "order_key"
+    },
+    {
+      "target_model": "rpt_exec_summary",
+      "target_column": "customer_ident",
+      "source_table": "stg_sales_base",
+      "source_column": "order_key"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "buyer_key",
+      "source_table": "ph_party_360",
+      "source_column": "byr_key"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "buyer_source_key",
+      "source_table": "ph_party_360",
+      "source_column": "byr_src_key"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "buyer_name",
+      "source_table": "ph_party_360",
+      "source_column": "byr_nm"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "buyer_email",
+      "source_table": "ph_party_360",
+      "source_column": "byr_email"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "buyer_phone",
+      "source_table": "ph_party_360",
+      "source_column": "byr_phn"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "buyer_address",
+      "source_table": "ph_party_360",
+      "source_column": "byr_addr"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "buyer_city",
+      "source_table": "ph_party_360",
+      "source_column": "byr_city"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "buyer_state",
+      "source_table": "ph_party_360",
+      "source_column": "byr_state"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "buyer_postal_code",
+      "source_table": "ph_party_360",
+      "source_column": "byr_postal"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "buyer_country",
+      "source_table": "ph_party_360",
+      "source_column": "byr_ctry"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "buyer_status",
+      "source_table": "ph_party_360",
+      "source_column": "byr_status"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "buyer_loyalty_tier",
+      "source_table": "ph_party_360",
+      "source_column": "byr_loyalty_tier"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "buyer_creation_date",
+      "source_table": "ph_party_360",
+      "source_column": "byr_create_dt"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "shipto_key",
+      "source_table": "ph_party_360",
+      "source_column": "shp_key"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "shipto_source_key",
+      "source_table": "ph_party_360",
+      "source_column": "shp_src_key"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "shipto_name",
+      "source_table": "ph_party_360",
+      "source_column": "shp_nm"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "shipto_phone",
+      "source_table": "ph_party_360",
+      "source_column": "shp_phn"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "shipto_address",
+      "source_table": "ph_party_360",
+      "source_column": "shp_addr"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "shipto_city",
+      "source_table": "ph_party_360",
+      "source_column": "shp_city"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "shipto_state",
+      "source_table": "ph_party_360",
+      "source_column": "shp_state"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "shipto_postal_code",
+      "source_table": "ph_party_360",
+      "source_column": "shp_postal"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "shipto_country",
+      "source_table": "ph_party_360",
+      "source_column": "shp_ctry"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "shipto_residential_flag",
+      "source_table": "ph_party_360",
+      "source_column": "shp_residential_flg"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "payer_key",
+      "source_table": "ph_party_360",
+      "source_column": "pyr_key"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "payer_source_key",
+      "source_table": "ph_party_360",
+      "source_column": "pyr_src_key"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "payer_name",
+      "source_table": "ph_party_360",
+      "source_column": "pyr_nm"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "payer_address",
+      "source_table": "ph_party_360",
+      "source_column": "pyr_addr"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "payer_city",
+      "source_table": "ph_party_360",
+      "source_column": "pyr_city"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "payer_state",
+      "source_table": "ph_party_360",
+      "source_column": "pyr_state"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "payer_postal_code",
+      "source_table": "ph_party_360",
+      "source_column": "pyr_postal"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "payer_country",
+      "source_table": "ph_party_360",
+      "source_column": "pyr_ctry"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "payer_credit_hold_flag",
+      "source_table": "ph_party_360",
+      "source_column": "pyr_credit_hold_flg"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "payer_payment_terms_code",
+      "source_table": "ph_party_360",
+      "source_column": "pyr_terms_cd"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "household_key",
+      "source_table": "ph_party_360",
+      "source_column": "hh_key"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "household_source_key",
+      "source_table": "ph_party_360",
+      "source_column": "hh_src_key"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "household_name",
+      "source_table": "ph_party_360",
+      "source_column": "hh_nm"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "household_size",
+      "source_table": "ph_party_360",
+      "source_column": "hh_size"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "household_income_band",
+      "source_table": "ph_party_360",
+      "source_column": "hh_income_band"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "household_city",
+      "source_table": "ph_party_360",
+      "source_column": "hh_city"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "household_state",
+      "source_table": "ph_party_360",
+      "source_column": "hh_state"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "household_postal_code",
+      "source_table": "ph_party_360",
+      "source_column": "hh_postal"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "dataproduct_load_date",
+      "source_table": "ph_party_360",
+      "source_column": "dp_load_dt"
+    },
+    {
+      "target_model": "dp_party_360",
+      "target_column": "dataproduct_load_by",
+      "source_table": "ph_party_360",
+      "source_column": "dp_load_by"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_key",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_key"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_source_key",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_src_key"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_sku",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_sku"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_name",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_nm"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_description",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_desc"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_brand_family",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_brand_fam"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_brand_subfamily",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_brand_subfam"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_brand_name",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_brand_nm"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_category",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_catg"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_subcategory",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_subcatg"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_segment_code",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_seg_cd"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_segment_name",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_seg_nm"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_unit_of_measure",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_uom"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_pack_size",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_pack_size"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_list_price",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_list_price"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_status_code",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_status_cd"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_status_description",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_status_desc"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_status_group",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_status_grp"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_status_start_date",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_status_dt"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_hazmat_flag",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_hazmat_flg"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_perishable_flag",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_perishable_flg"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "item_creation_date",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "it_create_dt"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "dataproduct_load_date",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "dp_load_dt"
+    },
+    {
+      "target_model": "dp_item_catalog",
+      "target_column": "dataproduct_load_by",
+      "source_table": "ph_item_catalog_wide",
+      "source_column": "dp_load_by"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "calculation_run_key",
+      "source_table": "ph_settlement_base",
+      "source_column": "calc_run_key"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "agreement_key",
+      "source_table": "ph_settlement_base",
+      "source_column": "agrmnt_key"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "agreement_name",
+      "source_table": "ph_settlement_base",
+      "source_column": "agrmnt_nm"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "partner_key",
+      "source_table": "ph_settlement_base",
+      "source_column": "partner_key"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "partner_name",
+      "source_table": "ph_settlement_base",
+      "source_column": "partner_nm"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "evaluation_start_date",
+      "source_table": "ph_settlement_base",
+      "source_column": "eval_start_dt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "evaluation_end_date",
+      "source_table": "ph_settlement_base",
+      "source_column": "eval_end_dt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "tier_code",
+      "source_table": "ph_settlement_base",
+      "source_column": "tier_cd"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "rebate_rate",
+      "source_table": "ph_settlement_base",
+      "source_column": "rebate_rate"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "qualifying_purchase_amount",
+      "source_table": "ph_settlement_base",
+      "source_column": "qual_purch_amt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "benefit_purchase_amount",
+      "source_table": "ph_settlement_base",
+      "source_column": "benefit_purch_amt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "previous_settlement_amount",
+      "source_table": "ph_settlement_base",
+      "source_column": "prev_settle_amt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "rebate_amount",
+      "source_table": "ph_settlement_base",
+      "source_column": "qual_purch_amt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "rebate_amount",
+      "source_table": "ph_settlement_base",
+      "source_column": "rebate_rate"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "margin_amount",
+      "source_table": "ph_settlement_base",
+      "source_column": "benefit_purch_amt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "margin_amount",
+      "source_table": "ph_settlement_base",
+      "source_column": "net_cost_amt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "margin_pct",
+      "source_table": "ph_settlement_base",
+      "source_column": "benefit_purch_amt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "margin_pct",
+      "source_table": "ph_settlement_base",
+      "source_column": "net_cost_amt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "payment_due_amount",
+      "source_table": "ph_settlement_base",
+      "source_column": "qual_purch_amt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "payment_due_amount",
+      "source_table": "ph_settlement_base",
+      "source_column": "rebate_rate"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "payment_due_amount",
+      "source_table": "ph_settlement_base",
+      "source_column": "prev_settle_amt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "make_whole_amount",
+      "source_table": "ph_settlement_base",
+      "source_column": "tier_cd"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "make_whole_amount",
+      "source_table": "ph_settlement_base",
+      "source_column": "benefit_purch_amt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "make_whole_amount",
+      "source_table": "ph_settlement_base",
+      "source_column": "list_cost_amt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "effective_rate",
+      "source_table": "ph_settlement_base",
+      "source_column": "qual_purch_amt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "effective_rate",
+      "source_table": "ph_settlement_base",
+      "source_column": "rebate_rate"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "evaluation_days",
+      "source_table": "ph_settlement_base",
+      "source_column": "eval_start_dt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "evaluation_days",
+      "source_table": "ph_settlement_base",
+      "source_column": "eval_end_dt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "dataproduct_load_date",
+      "source_table": "ph_settlement_base",
+      "source_column": "dp_load_dt"
+    },
+    {
+      "target_model": "dp_settlement_summary",
+      "target_column": "dataproduct_load_by",
+      "source_table": "ph_settlement_base",
+      "source_column": "dp_load_by"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "order_key",
+      "source_table": "ph_order_econ_base",
+      "source_column": "order_key"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "customer_key",
+      "source_table": "ph_order_econ_base",
+      "source_column": "cust_key"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "order_date",
+      "source_table": "ph_order_econ_base",
+      "source_column": "order_dt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "gross_amount",
+      "source_table": "ph_order_econ_base",
+      "source_column": "gross_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "discount_amount",
+      "source_table": "ph_order_econ_base",
+      "source_column": "discount_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "tax_amount",
+      "source_table": "ph_order_econ_base",
+      "source_column": "tax_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "freight_amount",
+      "source_table": "ph_order_econ_base",
+      "source_column": "freight_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "cost_of_goods_amount",
+      "source_table": "ph_order_econ_base",
+      "source_column": "cogs_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "net_revenue",
+      "source_table": "ph_order_econ_base",
+      "source_column": "gross_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "net_revenue",
+      "source_table": "ph_order_econ_base",
+      "source_column": "discount_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "net_revenue",
+      "source_table": "ph_order_econ_base",
+      "source_column": "return_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "gross_margin_amount",
+      "source_table": "ph_order_econ_base",
+      "source_column": "gross_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "gross_margin_amount",
+      "source_table": "ph_order_econ_base",
+      "source_column": "discount_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "gross_margin_amount",
+      "source_table": "ph_order_econ_base",
+      "source_column": "cogs_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "gross_margin_pct",
+      "source_table": "ph_order_econ_base",
+      "source_column": "gross_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "gross_margin_pct",
+      "source_table": "ph_order_econ_base",
+      "source_column": "discount_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "gross_margin_pct",
+      "source_table": "ph_order_econ_base",
+      "source_column": "cogs_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "loyalty_burn_amount",
+      "source_table": "ph_order_econ_base",
+      "source_column": "loyalty_pts_used"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "loyalty_burn_amount",
+      "source_table": "ph_order_econ_base",
+      "source_column": "loyalty_pt_value"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "total_landed_amount",
+      "source_table": "ph_order_econ_base",
+      "source_column": "gross_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "total_landed_amount",
+      "source_table": "ph_order_econ_base",
+      "source_column": "tax_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "total_landed_amount",
+      "source_table": "ph_order_econ_base",
+      "source_column": "freight_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "running_customer_revenue",
+      "source_table": "ph_order_econ_base",
+      "source_column": "gross_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "running_customer_revenue",
+      "source_table": "ph_order_econ_base",
+      "source_column": "discount_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "running_customer_revenue",
+      "source_table": "ph_order_econ_base",
+      "source_column": "return_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "running_customer_revenue",
+      "source_table": "ph_order_econ_base",
+      "source_column": "cust_key"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "running_customer_revenue",
+      "source_table": "ph_order_econ_base",
+      "source_column": "order_dt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "revenue_rank_in_customer",
+      "source_table": "ph_order_econ_base",
+      "source_column": "cust_key"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "revenue_rank_in_customer",
+      "source_table": "ph_order_econ_base",
+      "source_column": "gross_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "revenue_rank_in_customer",
+      "source_table": "ph_order_econ_base",
+      "source_column": "discount_amt"
+    },
+    {
+      "target_model": "dp_order_economics",
+      "target_column": "revenue_rank_in_customer",
+      "source_table": "ph_order_econ_base",
+      "source_column": "return_amt"
+    }
+  ]
+}
