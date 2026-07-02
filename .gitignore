@@ -1,0 +1,23 @@
+# results (keep summaries, ignore raw dumps)
+results/raw/
+results/*.log
+
+# env / secrets
+.env
+*.key
+*.pem
+
+# python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# assistant / docs — never commit (README is the one exception)
+CLAUDE.md
+**/CLAUDE.md
+*.md
+!README.md
+
+# os
+.DS_Store

@@ -1,0 +1,4 @@
+sqlglot==25.24.0
+sqllineage==1.5.3
+scipy==1.13.1
+matplotlib==3.9.2
