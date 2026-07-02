@@ -39,7 +39,9 @@ warehouse/            Snowflake SQL defining the benchmark warehouse
   gold/gold.sql       marts (static/dynamic pivot, window calc, nested, CTE)
   gold/dp_wide.sql    DP archetype A: wide rename views (repeated families)
   gold/dp_calc.sql    DP archetype B: calculation-heavy views
-  validate/validate.sql  SELECTs to certify each hard model reshaped correctly
+  validate/validate.sql            SELECTs to inspect each hard model (manual check)
+  validate/certify_gold_proc.sql   stored proc: 10 baked-in PASS/FAIL checks + stage
+  validate/run_certification.sql   driver: verdict table, JSON blob, file download
 gold/
   gold_edges.json     ground-truth column->column edges (DIRECT/INDIRECT, tagged by transform type)
 arms/                 extraction runners (added in Phase 1 / 3)
@@ -103,7 +105,7 @@ an `edges` array. Each edge:
 
 ## How to reproduce
 
-### Step 1 — (author only) build + certify the warehouse in Snowflake
+### Step 1 — (author only) build the warehouse in Snowflake
 
 Run in a Snowflake worksheet, in order:
 
@@ -116,10 +118,33 @@ warehouse/gold/dp_wide.sql
 warehouse/gold/dp_calc.sql
 ```
 
-Then run `warehouse/validate/validate.sql` query by query and confirm each hard
-model matches the expected shape described in its comment. This certifies the
-gold edges. This step is **not required to run the evaluation** — it only
-validates the ground truth.
+### Step 1b — certify the gold
+
+The gold edges are certified by executing the models and confirming each hard
+transform produced the expected shape. Two ways:
+
+**Automated (recommended).** Run `warehouse/validate/certify_gold_proc.sql`
+once to create the `certify_gold()` procedure and `CERT_STAGE`. Then run the
+blocks in `warehouse/validate/run_certification.sql`:
+
+- Block A — verdict table, one row per check (PASS/FAIL float to top)
+- Block B — one-row overall PASS/FAIL summary
+- Block C — the single JSON blob (copy the one cell for the record)
+- Block D — writes `certification.json` to `@CERT_STAGE`
+- Block E — `GET` to download the file (SnowSQL only, not the browser console)
+
+The procedure runs 10 baked-in checks: no-RI merge rowcount and seller
+resolution, DP-A family distinctness (cross-wiring guard), DP-B derived math
+(`rebate_amount`, `net_revenue` recomputed and compared), static + dynamic
+pivot columns, flatten columns, and wide-view width. `overall = PASS` means the
+gold is certified.
+
+**Manual fallback.** Run `warehouse/validate/validate.sql` query by query and
+confirm each hard model matches the expected shape in its comment. This needs
+no stored procedure.
+
+This whole step is **not required to run the evaluation** — it only validates
+the ground truth.
 
 ### Step 2 — set up the Python environment
 
@@ -162,6 +187,31 @@ python harness/score.py             # re-score all three arms
 python figures/make_figures.py
 python figures/make_tables.py
 ```
+
+## Git workflow
+
+Initial setup (empty remote already created):
+
+```
+git clone git@github.com:<you>/lineage-bench.git
+cd lineage-bench
+# copy repo contents in (including dotfiles), then:
+git add .
+git commit -m "Phase 0: benchmark warehouse + gold edges"
+git push -u origin main
+```
+
+Adding the certification files:
+
+```
+git add warehouse/validate/certify_gold_proc.sql warehouse/validate/run_certification.sql README.md
+git commit -m "Phase 0: gold certification procedure + driver"
+git push
+```
+
+The `.gitignore` keeps `.venv/`, secrets (`.env`, `*.key`, `*.pem`), raw run
+dumps, and all markdown except this README out of the repo. Verify before any
+commit with `git status` — `.venv/` and stray docs should never appear.
 
 ## Notes
 
