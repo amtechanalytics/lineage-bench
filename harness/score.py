@@ -178,6 +178,68 @@ def score_arm(arm_name, arm, gold):
     }
 
 
+def compute_raw_leaves(gold):
+    """Raw/physical source tables = tables that appear as a source but never as
+    a target model. Transitive closure terminates at these."""
+    sources = set(e["source_table"] for e in gold)
+    targets = set(e["target_model"] for e in gold)
+    return sources - targets
+
+
+def transitive_closure(edges, raw_leaves):
+    """Compose immediate edges into end-to-end traces terminating at raw
+    leaves. Returns a set of (target_model, target_column, raw_table,
+    raw_column) tuples: the full trace from each model column back to every
+    ultimate raw column that feeds it."""
+    fwd = defaultdict(list)
+    for (tm, tc, st, sc) in edges:
+        fwd[(tm, tc)].append((st, sc))
+
+    closure = set()
+
+    def trace(model, column, origin, visited):
+        node = (model, column)
+        if node in visited:
+            return
+        visited = visited | {node}
+        for (st, sc) in fwd.get(node, []):
+            if st in raw_leaves:
+                closure.add((origin[0], origin[1], st, sc))
+            else:
+                trace(st, sc, origin, visited)
+
+    targets = set((tm, tc) for (tm, tc, _, _) in edges)
+    for (tm, tc) in targets:
+        trace(tm, tc, (tm, tc), frozenset())
+    return closure
+
+
+def score_closure(arm_name, arm, gold, raw_leaves):
+    """End-to-end trace accuracy: does the arm's transitive closure recover the
+    gold's closure (model column -> ultimate raw column)?"""
+    gold_edge_tuples = [(e["target_model"], e["target_column"],
+                         e["source_table"], e["source_column"]) for e in gold]
+    gold_closure = transitive_closure(gold_edge_tuples, raw_leaves)
+    arm_closure = transitive_closure(list(arm["preds"]), raw_leaves)
+
+    scored_models = set(e["target_model"] for e in gold)
+    gold_closure = {t for t in gold_closure if t[0] in scored_models}
+    arm_closure = {t for t in arm_closure if t[0] in scored_models}
+
+    tp = len(gold_closure & arm_closure)
+    n_gold = len(gold_closure)
+    n_pred = len(arm_closure)
+    prec, prec_lo, prec_hi = wilson_ci(tp, n_pred)
+    rec, rec_lo, rec_hi = wilson_ci(tp, n_gold)
+    f1 = (2*prec*rec/(prec+rec)) if (prec+rec) > 0 else 0.0
+    return {
+        "arm": arm_name,
+        "trace_precision": prec, "trace_precision_ci": (prec_lo, prec_hi),
+        "trace_recall": rec, "trace_recall_ci": (rec_lo, rec_hi),
+        "trace_f1": f1, "tp": tp, "n_gold_traces": n_gold, "n_pred_traces": n_pred,
+    }
+
+
 def mcnemar(vec_a, vec_b):
     """Exact McNemar on paired binary recall vectors. Returns (b, c, p_value)
     where b = a-correct/b-wrong, c = a-wrong/b-correct."""
@@ -204,11 +266,13 @@ def main():
           f"{sum(1 for e in gold if e['type']=='INDIRECT')} INDIRECT\n")
 
     scored = {}
+    arms_loaded = {}
     for arm_name in ARMS:
         arm = load_arm(arm_name)
         if arm is None:
             print(f"[skip] {arm_name}: no results file")
             continue
+        arms_loaded[arm_name] = arm
         scored[arm_name] = score_arm(arm_name, arm, gold)
 
     if not scored:
@@ -260,9 +324,64 @@ def main():
                 sig = "*" if p < 0.05 else " "
                 print(f"  {a} vs {b}: b={bb} c={cc} p={p:.4f} {sig}")
 
+    # near-miss diagnostics: for each arm, gold edges missed where the arm DID
+    # predict something for that (target_model, target_column) but with a
+    # different source -- reveals alias/naming mismatches vs true failures.
+    print("\nNear-miss diagnostics (missed gold edge, but arm predicted same "
+          "target col with a DIFFERENT source):")
+    for arm_name, arm in arms_loaded.items():
+        pred_by_target = defaultdict(set)
+        for (tm, tc, st, sc) in arm["preds"]:
+            pred_by_target[(tm, tc)].add((st, sc))
+        near = 0
+        examples = []
+        for e in gold:
+            if is_matched(e, arm):
+                continue
+            key = (e["target_model"], e["target_column"])
+            if key in pred_by_target:
+                near += 1
+                if len(examples) < 6:
+                    got = list(pred_by_target[key])[:2]
+                    examples.append(
+                        f"{e['target_model']}.{e['target_column']}: "
+                        f"gold<-{e['source_table']}.{e['source_column']} "
+                        f"| arm<-{got}")
+        print(f"  {arm_name}: {near} near-misses")
+        for ex in examples:
+            print(f"      {ex}")
+
+    # ---- secondary metric: transitive-closure (end-to-end trace) ----
+    raw_leaves = compute_raw_leaves(gold)
+    print("\n" + "=" * 72)
+    print("SECONDARY: end-to-end trace accuracy (transitive closure to raw)")
+    print(f"(raw leaves: {len(raw_leaves)} physical tables; "
+          f"traces composed through intermediate models)")
+    print("-" * 72)
+    print(f"{'ARM':<12}{'Trace-Prec':<20}{'Trace-Rec':<20}{'Trace-F1':<8}")
+    print("-" * 72)
+    closure_out = {}
+    for arm_name, arm in arms_loaded.items():
+        c = score_closure(arm_name, arm, gold, raw_leaves)
+        closure_out[arm_name] = c
+        tp_lo, tp_hi = c["trace_precision_ci"]
+        tr_lo, tr_hi = c["trace_recall_ci"]
+        print(f"{arm_name:<12}"
+              f"{fmt_pct(c['trace_precision'])} [{fmt_pct(tp_lo)},{fmt_pct(tp_hi)}]  "
+              f"{fmt_pct(c['trace_recall'])} [{fmt_pct(tr_lo)},{fmt_pct(tr_hi)}]  "
+              f"{c['trace_f1']:.3f}")
+        print(f"{'':12}(gold traces={c['n_gold_traces']}, "
+              f"arm traces={c['n_pred_traces']}, matched={c['tp']})")
+    print("=" * 72)
+    print("Note: an arm can score high on immediate per-hop F1 yet low on trace")
+    print("F1 if it fails one critical hop that poisons every path through it.")
+
     # write machine-readable summary
     out = {name: {k: v for k, v in s.items() if k != "recalled_vector"}
            for name, s in scored.items()}
+    for name in out:
+        if name in closure_out:
+            out[name]["closure"] = closure_out[name]
     os.makedirs(RESULTS_DIR, exist_ok=True)
     with open(os.path.join(RESULTS_DIR, "scores.json"), "w") as f:
         json.dump(out, f, indent=2)
